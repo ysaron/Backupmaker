@@ -1,0 +1,14 @@
+
+common:
+  - C:\Users\username\Desktop\file.txt
+  - D:\etc\example\example.xlsx
+
+another_subdir:
+  - C:\directory1\file01.docx
+  - C:\directory2\directory3\file02.pdf
+  - C:\directory2\directory4\file03.jpg
+
+# ----------------------------------------------------------------- #
+backup_dir:
+  - F:\backup\backuper
+
