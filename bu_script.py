@@ -2,9 +2,8 @@ import os
 import shutil
 import yaml
 import sys
-from pprint import pprint
 
-with open('test_paths.yaml', encoding='utf-8') as f:
+with open('bu_paths.yaml', encoding='utf-8') as f:
     raw_paths = yaml.safe_load(f)
 
 
@@ -33,8 +32,7 @@ class BackupPaths:
         self.problems = {'nonstr_paths': [],
                          'nonabs_paths': [],
                          'nonexistent_paths': [],
-                         'failed_targets': [],
-                         'other': []}
+                         'failed_targets': []}
 
     @property
     def target(self):
@@ -61,12 +59,9 @@ class BackupPaths:
         self.__elems_to_backup = to_backup
 
     def __validate_path_list(self, path_list: list[str]):
-        # pprint(path_list)
         if not path_list:
-            # self.problems['other'].append(err_msg)
             raise NoBackupError
         if not isinstance(path_list, list):
-            # self.problems['other'].append(err_msg)
             raise YamlListError
 
         for path in path_list:
@@ -83,7 +78,6 @@ class BackupPaths:
         if self.problems['nonabs_paths']:
             raise ValueError(f'Не все пути являются абсолютными')
         if self.problems['nonexistent_paths']:
-            pprint(self.problems)
             raise FileNotFoundError(f'Не все пути в списке существуют')
 
     def __calc_backup_size(self, to_backup: dict[list]):
@@ -130,7 +124,6 @@ class BackupPaths:
 
 
 def main():
-    # pprint(raw_paths)
     bp = BackupPaths()
     farewell_msg = 'Enter - закрыть окно\n'
     try:
@@ -169,7 +162,6 @@ def main():
         input(farewell_msg)
         sys.exit()
 
-    # pprint(bp.target)
     bp.make_backup()
 
 
