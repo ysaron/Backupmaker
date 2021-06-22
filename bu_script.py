@@ -1,11 +1,28 @@
 import os
 import shutil
 import yaml
-import re
+import sys
 from pprint import pprint
 
-with open('bu_paths.yaml', encoding='utf-8') as f:
+with open('test_paths.yaml', encoding='utf-8') as f:
     raw_paths = yaml.safe_load(f)
+
+
+class NoBackupError(Exception):
+    msg = 'Не определено никаких файлов для копирования'
+
+    def __init__(self):
+        self.message = NoBackupError.msg
+        super().__init__(self.message)
+
+
+class YamlListError(Exception):
+    msg = 'Список путей в YAML не соответствует типу list'
+
+    def __init__(self):
+        self.message = YamlListError.msg
+        super().__init__(self.message)
+
 
 
 class BackupPaths:
@@ -37,24 +54,27 @@ class BackupPaths:
     @paths.setter
     def paths(self, to_backup: dict[list]):
         """ Задание путей к резервируемым файлам """
+        if not to_backup:
+            raise NoBackupError
         for path_list in to_backup.values():
             self.__validate_path_list(path_list)    # если что-то не так - здесь возникнут исключения
         self.__calc_backup_size(to_backup)
         self.__elems_to_backup = to_backup
 
     def __validate_path_list(self, path_list: list[str]):
+        pprint(path_list)
         if not path_list:
-            self.__problems['other'].append('no dirs')
-            raise Exception
+            # self.__problems['other'].append(err_msg)
+            raise NoBackupError
         if not isinstance(path_list, list):
-            self.__problems['other'].append('dirs is not list')
-            raise Exception
+            # self.__problems['other'].append(err_msg)
+            raise YamlListError
 
         for path in path_list:
             if not isinstance(path, str):
                 self.__problems['nonstr_paths'].append(path)
         if self.__problems['nonstr_paths']:
-            raise TypeError('Все пути должны быть строками!')
+            raise TypeError('Не все пути являются строками')
 
         for path in path_list:
             if not os.path.isabs(path):
@@ -62,9 +82,10 @@ class BackupPaths:
             if not os.path.exists(path):
                 self.__problems['nonexistent_paths'].append(path)
         if self.__problems['nonabs_paths']:
-            raise ValueError(f'Все пути должны быть абсолютными')
+            raise ValueError(f'Не все пути являются абсолютными')
         if self.__problems['nonexistent_paths']:
-            raise FileNotFoundError(f'Несуществующие пути')
+            pprint(self.__problems)
+            raise FileNotFoundError(f'Не все пути в списке существуют')
 
         for path in path_list:
             print(f'FILE SIZE: {os.stat(path).st_size} bytes')
@@ -74,7 +95,7 @@ class BackupPaths:
         for path_list in to_backup.values():
             size += sum([os.stat(path).st_size for path in path_list])
         self.__backup_size = size
-        print(self.__backup_size)
+        print(f'Копируемые файлы занимают {self.__backup_size} байт')
 
     @staticmethod
     def __calc_free_memory(directory: str):
@@ -89,7 +110,7 @@ class BackupPaths:
                 continue
             for key, value in self.__elems_to_backup.items():
                 subdir = self.__make_backup_subdir(name=key, root_dir=dir_)
-                self.__copy_to_subdir(subdir=subdir, filelist=value)
+                self.__copy_to_subdir(subdir=subdir, pathlist=value)
 
     @staticmethod
     def __make_backup_subdir(name: str, root_dir: str):
@@ -100,18 +121,31 @@ class BackupPaths:
         return subdir
 
     @staticmethod
-    def __copy_to_subdir(subdir: str, filelist: list):
-        """ Копирует каждый файл в списке в заданную папку """
-        for file in filelist:
-            shutil.copy2(file, subdir)
+    def __copy_to_subdir(subdir: str, pathlist: list):
+        """ Копирует каждый файл/папку в списке путей в заданную папку """
+        for path in pathlist:
+            if os.path.isfile(path):
+                shutil.copy2(path, subdir)
+            else:
+                destination = os.path.join(subdir, os.path.split(path)[-1])
+                if not os.path.exists(destination):
+                    os.mkdir(destination)
+                shutil.copytree(src=path, dst=destination, dirs_exist_ok=True)
 
 
 def main():
     pprint(raw_paths)
     bp = BackupPaths()
-    bp.target = raw_paths['backup_dir']     # проверять, есть ли такой ключ
-    del raw_paths['backup_dir']
-    bp.paths = raw_paths
+    try:
+        bp.target = raw_paths['backup_dir']     # проверять, есть ли такой ключ
+        del raw_paths['backup_dir']
+        bp.paths = raw_paths
+    except KeyError:
+        print('Папки, в которые выполняется резервное копирование, должны быть заданы в YAML-файле под ключом '
+              'backup_dir')
+        input('Enter - закрыть окно\n')
+        sys.exit()
+
     pprint(bp.target)
     bp.make_backup()
 
