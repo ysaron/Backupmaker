@@ -17,12 +17,11 @@ class NoBackupError(Exception):
 
 
 class YamlListError(Exception):
-    msg = 'Список путей в YAML не соответствует типу list'
+    msg = 'Один или более списков путей в YAML не соответствуют типу list'
 
     def __init__(self):
         self.message = YamlListError.msg
         super().__init__(self.message)
-
 
 
 class BackupPaths:
@@ -31,11 +30,11 @@ class BackupPaths:
         self.__targets = []
         self.__elems_to_backup = {}
         self.__backup_size: int = 0
-        self.__problems = {'nonstr_paths': [],
-                           'nonabs_paths': [],
-                           'nonexistent_paths': [],
-                           'failed_targets': [],
-                           'other': []}
+        self.problems = {'nonstr_paths': [],
+                         'nonabs_paths': [],
+                         'nonexistent_paths': [],
+                         'failed_targets': [],
+                         'other': []}
 
     @property
     def target(self):
@@ -57,38 +56,35 @@ class BackupPaths:
         if not to_backup:
             raise NoBackupError
         for path_list in to_backup.values():
-            self.__validate_path_list(path_list)    # если что-то не так - здесь возникнут исключения
+            self.__validate_path_list(path_list)  # если что-то не так - здесь возникнут исключения
         self.__calc_backup_size(to_backup)
         self.__elems_to_backup = to_backup
 
     def __validate_path_list(self, path_list: list[str]):
-        pprint(path_list)
+        # pprint(path_list)
         if not path_list:
-            # self.__problems['other'].append(err_msg)
+            # self.problems['other'].append(err_msg)
             raise NoBackupError
         if not isinstance(path_list, list):
-            # self.__problems['other'].append(err_msg)
+            # self.problems['other'].append(err_msg)
             raise YamlListError
 
         for path in path_list:
             if not isinstance(path, str):
-                self.__problems['nonstr_paths'].append(path)
-        if self.__problems['nonstr_paths']:
+                self.problems['nonstr_paths'].append(path)
+        if self.problems['nonstr_paths']:
             raise TypeError('Не все пути являются строками')
 
         for path in path_list:
             if not os.path.isabs(path):
-                self.__problems['nonabs_paths'].append(path)
+                self.problems['nonabs_paths'].append(path)
             if not os.path.exists(path):
-                self.__problems['nonexistent_paths'].append(path)
-        if self.__problems['nonabs_paths']:
+                self.problems['nonexistent_paths'].append(path)
+        if self.problems['nonabs_paths']:
             raise ValueError(f'Не все пути являются абсолютными')
-        if self.__problems['nonexistent_paths']:
-            pprint(self.__problems)
+        if self.problems['nonexistent_paths']:
+            pprint(self.problems)
             raise FileNotFoundError(f'Не все пути в списке существуют')
-
-        for path in path_list:
-            print(f'FILE SIZE: {os.stat(path).st_size} bytes')
 
     def __calc_backup_size(self, to_backup: dict[list]):
         size = 0
@@ -106,7 +102,7 @@ class BackupPaths:
         for dir_ in self.__targets:
             free_mem = BackupPaths.__calc_free_memory(dir_)
             if free_mem <= self.__backup_size:
-                self.__problems['failed_targets'].append(dir_)
+                self.problems['failed_targets'].append(dir_)
                 continue
             for key, value in self.__elems_to_backup.items():
                 subdir = self.__make_backup_subdir(name=key, root_dir=dir_)
@@ -134,26 +130,47 @@ class BackupPaths:
 
 
 def main():
-    pprint(raw_paths)
+    # pprint(raw_paths)
     bp = BackupPaths()
+    farewell_msg = 'Enter - закрыть окно\n'
     try:
-        bp.target = raw_paths['backup_dir']     # проверять, есть ли такой ключ
+        bp.target = raw_paths['backup_dir']
         del raw_paths['backup_dir']
         bp.paths = raw_paths
     except KeyError:
-        print('Папки, в которые выполняется резервное копирование, должны быть заданы в YAML-файле под ключом '
+        print('Папки, в которые выполняется резервное копирование, должны быть заданы в YAML-файле списком под ключом '
               'backup_dir')
-        input('Enter - закрыть окно\n')
+        input(farewell_msg)
+        sys.exit()
+    except NoBackupError:
+        print(NoBackupError.msg)
+        input(farewell_msg)
+        sys.exit()
+    except YamlListError:
+        print(YamlListError.msg)
+        input(farewell_msg)
+        sys.exit()
+    except TypeError:
+        print('Не все пути являются строками:')
+        for path in bp.problems['nonstr_paths']:
+            print(path)
+        input(farewell_msg)
+        sys.exit()
+    except ValueError:
+        print('Не все пути являются абсолютными:')
+        for path in bp.problems['nonabs_paths']:
+            print(path)
+        input(farewell_msg)
+        sys.exit()
+    except FileNotFoundError:
+        print('Не все пути из указанных существуют:')
+        for path in bp.problems['nonexistent_paths']:
+            print(path)
+        input(farewell_msg)
         sys.exit()
 
-    pprint(bp.target)
+    # pprint(bp.target)
     bp.make_backup()
-
-    total_bytes, used_bytes, free_bytes = shutil.disk_usage('F:')
-    mb = 10 ** 6
-    print(f'Всего:\t\t{total_bytes / mb} МБ')
-    print(f'Занято:\t\t{used_bytes / mb} МБ')
-    print(f'Свободно:\t{free_bytes / mb} МБ')
 
 
 if __name__ == '__main__':
