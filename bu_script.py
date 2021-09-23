@@ -1,7 +1,8 @@
 import os
 import shutil
 import yaml
-import sys
+from sys import exit
+from time import sleep
 
 with open('bu_paths.yaml', encoding='utf-8') as f:
     raw_paths = yaml.safe_load(f)
@@ -85,7 +86,6 @@ class BackupPaths:
         for path_list in to_backup.values():
             size += sum([os.stat(path).st_size for path in path_list])
         self.__backup_size = size
-        print(f'Копируемые файлы занимают {self.__backup_size} байт')
 
     @staticmethod
     def __calc_free_memory(directory: str):
@@ -98,7 +98,9 @@ class BackupPaths:
             if free_mem <= self.__backup_size:
                 self.problems['failed_targets'].append(dir_)
                 continue
+            print(f'Копируемые файлы (занимают {self.__backup_size} байт):')
             for key, value in self.__elems_to_backup.items():
+                print(f'\t{key:15} - {" | ".join(value)}')
                 subdir = self.__make_backup_subdir(name=key, root_dir=dir_)
                 self.__copy_to_subdir(subdir=subdir, pathlist=value)
 
@@ -134,35 +136,38 @@ def main():
         print('Папки, в которые выполняется резервное копирование, должны быть заданы в YAML-файле списком под ключом '
               'backup_dir')
         input(farewell_msg)
-        sys.exit()
+        exit()
     except NoBackupError:
         print(NoBackupError.msg)
         input(farewell_msg)
-        sys.exit()
+        exit()
     except YamlListError:
         print(YamlListError.msg)
         input(farewell_msg)
-        sys.exit()
+        exit()
     except TypeError:
         print('Не все пути являются строками:')
         for path in bp.problems['nonstr_paths']:
             print(path)
         input(farewell_msg)
-        sys.exit()
+        exit()
     except ValueError:
         print('Не все пути являются абсолютными:')
         for path in bp.problems['nonabs_paths']:
             print(path)
         input(farewell_msg)
-        sys.exit()
+        exit()
     except FileNotFoundError:
         print('Не все пути из указанных существуют:')
         for path in bp.problems['nonexistent_paths']:
             print(path)
         input(farewell_msg)
-        sys.exit()
+        exit()
 
     bp.make_backup()
+    print('Готово!\nОкно закроется автоматически через 10 секунд.')
+    sleep(10)
+    exit()
 
 
 if __name__ == '__main__':

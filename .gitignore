@@ -1,3 +1,8 @@
 .idea
 test_paths.yaml
 bu_plan.txt
+bu_venv
+test1.py
+*.spec
+/build
+/dist
